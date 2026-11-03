@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model City {
+  id        String    @id @db.Uuid
+  nameFa    String    @map("name_fa")
+  latitude  Float
+  longitude Float
+  profiles  Profile[]
+
+  @@map("cities")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  phoneE164    String    @unique @map("phone_e164")
+  phoneHash    String    @unique @map("phone_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  deletedAt    DateTime? @map("deleted_at")
+  profile      Profile?
+  preference   Preference?
+  photos       Photo[]
+  refreshTokens RefreshToken[]
+  devices      Device[]
+
+  @@map("users")
+}
+
+model Profile {
+  userId               String   @id @map("user_id") @db.Uuid
+  displayName          String   @map("display_name")
+  birthDate            DateTime @map("birth_date") @db.Date
+  gender               String
+  bio                  String   @default("")
+  job                  String?
+  education            String?
+  cityId               String   @map("city_id") @db.Uuid
+  latitude             Float?
+  longitude            Float?
+  lastActiveAt         DateTime @default(now()) @map("last_active_at")
+  onboardingComplete   Boolean  @default(false) @map("onboarding_complete")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city                 City     @relation(fields: [cityId], references: [id])
+
+  @@index([cityId])
+  @@index([lastActiveAt])
+  @@map("profiles")
+}
+
+model Preference {
+  userId        String @id @map("user_id") @db.Uuid
+  showGenders   String[] @map("show_genders")
+  ageMin        Int    @default(18) @map("age_min")
+  ageMax        Int    @default(80) @map("age_max")
+  maxDistanceKm Int    @default(50) @map("max_distance_km")
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("preferences")
+}
+
+model Photo {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  storageKey String  @map("storage_key")
+  sortOrder Int      @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+  @@map("photos")
+}
+
+model Swipe {
+  id         String   @id @default(uuid()) @db.Uuid
+  fromUserId String   @map("from_user_id") @db.Uuid
+  toUserId   String   @map("to_user_id") @db.Uuid
+  direction  String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId, direction])
+  @@map("swipes")
+}
+
+model Impression {
+  viewerId    String   @map("viewer_id") @db.Uuid
+  shownUserId String   @map("shown_user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@id([viewerId, shownUserId])
+  @@index([shownUserId])
+  @@map("impressions")
+}
+
+model Match {
+  id        String    @id @default(uuid()) @db.Uuid
+  userLowId String    @map("user_low_id") @db.Uuid
+  userHighId String   @map("user_high_id") @db.Uuid
+  status    String    @default("pending")
+  createdAt DateTime  @default(now()) @map("created_at")
+  closedAt  DateTime? @map("closed_at")
+  messages  Message[]
+
+  @@unique([userLowId, userHighId])
+  @@map("matches")
+}
+
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  matchId   String   @map("match_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, createdAt])
+  @@map("messages")
+}
+
+model Block {
+  id            String   @id @default(uuid()) @db.Uuid
+  blockerId     String   @map("blocker_id") @db.Uuid
+  blockedUserId String?  @map("blocked_user_id") @db.Uuid
+  phoneHash     String?  @map("phone_hash")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([blockerId])
+  @@index([blockedUserId])
+  @@index([phoneHash])
+  @@map("blocks")
+}
+
+model Report {
+  id             String   @id @default(uuid()) @db.Uuid
+  reporterId     String   @map("reporter_id") @db.Uuid
+  reportedUserId String   @map("reported_user_id") @db.Uuid
+  reason         String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("reports")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Device {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String
+  platform  String
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@map("devices")
+}
